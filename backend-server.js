@@ -1,47 +1,67 @@
 // backend-server.js
+
 const express = require('express');
 const cors = require('cors');
+
 const app = express();
-const PORT = 3001;
+const PORT = 3001; // 在Vercel上，这个端口号会被自动覆盖，所以写多少都行
 
-// 使用 cors 中间件，允许所有来源的跨域请求
-app.use(cors());
-// 解析JSON格式的请求体
-app.use(express.json());
+// 使用中间件
+app.use(cors()); // 允许所有跨域请求
+app.use(express.json()); // 解析JSON格式的请求体
 
-// 用一个简单的数组来模拟数据库
+// 一个“内存数据库”，用来存储订单
 let ordersDB = [];
-let currentId = 1;
+let nextOrderId = 1;
+
+// =======================【新增代码】=======================
+// 为根路径 / 添加一个欢迎页面
+// 当有人直接访问您的 Vercel 网址时，就会看到这个信息
+app.get('/', (req, res) => {
+  res.status(200).send(
+    '<h1>欢迎来到3D打印订单API服务！</h1><p>后端服务运行正常。请使用 /api/orders 路径进行交互。</p>'
+  );
+});
+// =====================【新增代码结束】=====================
+
 
 // --- API 路由 ---
 
-// 处理 POST /api/orders 请求 (创建新订单)
+// 1. 处理创建新订单的POST请求
 app.post('/api/orders', (req, res) => {
-  console.log('收到新的订单请求:', req.body);
-  
+  console.log('收到新的订单请求体:', req.body);
+  const { userId, modelFile, material, quantity } = req.body;
+
+  // 简单的验证
+  if (!userId || !modelFile || !material || !quantity) {
+    return res.status(400).json({ error: '请求缺少必要的订单信息' });
+  }
+
   const newOrder = {
-    id: currentId++,
-    ...req.body,
-    status: 'received',
+    id: nextOrderId++,
+    userId,
+    modelFile,
+    material,
+    quantity,
+    status: 'pending',
     createdAt: new Date().toISOString()
   };
 
   ordersDB.push(newOrder);
-  
-  // 返回成功响应和新创建的订单数据
+  console.log('创建新订单成功:', newOrder);
+
+  // 返回 201 Created 状态码和新创建的订单信息
   res.status(201).json(newOrder);
 });
 
-// 处理 GET /api/orders 请求 (获取所有订单)
+// 2. 处理获取所有订单的GET请求
 app.get('/api/orders', (req, res) => {
-  res.json(ordersDB);
+  console.log('收到获取所有订单的请求');
+  res.status(200).json(ordersDB);
 });
 
 
-// ==================【关键修改】==================
-// 在 app.listen 中增加第二个参数 '0.0.0.0'
-// 这会让服务器监听本机所有的IP地址，而不仅仅是 localhost
+// 启动服务器
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ 后端服务器已启动，正在监听所有网络接口的 ${PORT} 端口...`);
 });
-// ===============================================
